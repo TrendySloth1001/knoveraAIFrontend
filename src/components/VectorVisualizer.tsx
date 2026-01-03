@@ -28,11 +28,21 @@ export function VectorVisualizer({ data, compareTo }: VectorVisualizerProps) {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         const width = canvas.width;
         const height = canvas.height;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        if (!data || data.length === 0) {
+            ctx.fillStyle = '#666';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('No vector data available', width / 2, height / 2);
+            return;
+        }
+
         const barWidth = width / data.length;
 
         // Auto-scale
@@ -132,9 +142,7 @@ export function VectorVisualizer({ data, compareTo }: VectorVisualizerProps) {
                             <span>{magB.toFixed(2)}</span>
                         </div>
                     </div>
-                    <div className="math-formula">
-                        (A · B) / (||A|| * ||B||) = {dotProduct.toFixed(2)} / ({magA.toFixed(2)} * {magB.toFixed(2)})
-                    </div>
+                    {/* Formula hidden as per request */}
                 </div>
             )}
         </div>

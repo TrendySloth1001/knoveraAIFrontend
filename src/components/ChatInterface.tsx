@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Send, Database, Globe } from 'lucide-react';
 import { api, Message } from '../services/api';
 import { VectorVisualizer } from './VectorVisualizer';
@@ -48,7 +49,7 @@ export function ChatInterface({ conversationId, teacherId, onConversationCreated
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, expandedEmbeddings]);
+    }, [messages]);
 
     const toggleEmbedding = (idx: number) => {
         const newSet = new Set(expandedEmbeddings);
@@ -153,17 +154,36 @@ export function ChatInterface({ conversationId, teacherId, onConversationCreated
                                 </div>
                                 <div className="markdown-body">
                                     <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
                                         components={{
-                                            a: ({ node, ...props }) => (
-                                                <a
-                                                    {...props}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="citation-link"
-                                                    title={props.href}
-                                                >
-                                                    [Link]
-                                                </a>
+                                            a: ({ node, ...props }) => {
+                                                const [hover, setHover] = useState(false);
+                                                return (
+                                                    <span
+                                                        className="link-tooltip-container"
+                                                        onMouseEnter={() => setHover(true)}
+                                                        onMouseLeave={() => setHover(false)}
+                                                    >
+                                                        <a
+                                                            {...props}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="citation-link"
+                                                        >
+                                                            [Link]
+                                                        </a>
+                                                        {hover && (
+                                                            <div className="link-tooltip">
+                                                                {props.href}
+                                                            </div>
+                                                        )}
+                                                    </span>
+                                                );
+                                            },
+                                            table: ({ node, ...props }) => (
+                                                <div className="table-responsive">
+                                                    <table {...props} />
+                                                </div>
                                             )
                                         }}
                                     >
@@ -171,25 +191,42 @@ export function ChatInterface({ conversationId, teacherId, onConversationCreated
                                     </ReactMarkdown>
                                 </div>
                                 {expandedEmbeddings.has(idx) && msg.embedding && (
-                                    Array.isArray(msg.embedding) ? (
-                                        <VectorVisualizer
-                                            data={msg.embedding as number[]}
-                                            compareTo={
-                                                // Find nearest previous embedding
-                                                (() => {
-                                                    for (let i = idx - 1; i >= 0; i--) {
-                                                        const prevParams = messages[i].embedding;
-                                                        if (Array.isArray(prevParams)) return prevParams as number[];
-                                                    }
-                                                    return undefined;
-                                                })()
+                                    (() => {
+                                        let embeddingData: number[] | null = null;
+                                        try {
+                                            if (Array.isArray(msg.embedding)) {
+                                                embeddingData = msg.embedding as number[];
+                                            } else if (typeof msg.embedding === 'string') {
+                                                embeddingData = JSON.parse(msg.embedding);
                                             }
-                                        />
-                                    ) : (
-                                        <div className="embedding-view">
-                                            <pre>{JSON.stringify(msg.embedding, null, 2)}</pre>
-                                        </div>
-                                    )
+                                        } catch (e) {
+                                            console.error("Failed to parse embedding", e);
+                                        }
+
+                                        return Array.isArray(embeddingData) ? (
+                                            <VectorVisualizer
+                                                data={embeddingData}
+                                                compareTo={
+                                                    // Find nearest previous embedding
+                                                    (() => {
+                                                        for (let i = idx - 1; i >= 0; i--) {
+                                                            let prevParams: any = messages[i].embedding;
+                                                            // Parse previous if needed
+                                                            if (typeof prevParams === 'string') {
+                                                                try { prevParams = JSON.parse(prevParams); } catch (e) { }
+                                                            }
+                                                            if (Array.isArray(prevParams)) return prevParams as number[];
+                                                        }
+                                                        return undefined;
+                                                    })()
+                                                }
+                                            />
+                                        ) : (
+                                            <div className="embedding-view">
+                                                <pre>{typeof msg.embedding === 'string' ? msg.embedding : JSON.stringify(msg.embedding, null, 2)}</pre>
+                                            </div>
+                                        );
+                                    })()
                                 )}
                             </div>
                         </div>
@@ -208,11 +245,14 @@ export function ChatInterface({ conversationId, teacherId, onConversationCreated
                     >
                         <Globe size={20} />
                     </button>
+                    <div className="model-badge">
+                        <span>qwen2.5:7b</span>
+                    </div>
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Message Knovera AI (qwen2.5:7b)..."
+                        placeholder="Message..."
                         disabled={isLoading}
                     />
                     <button type="submit" disabled={!input.trim() || isLoading}>
