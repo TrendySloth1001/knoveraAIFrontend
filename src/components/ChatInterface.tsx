@@ -152,11 +152,39 @@ export function ChatInterface({ conversationId, teacherId, onConversationCreated
                                     )}
                                 </div>
                                 <div className="markdown-body">
-                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    <ReactMarkdown
+                                        components={{
+                                            a: ({ node, ...props }) => (
+                                                <a
+                                                    {...props}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="citation-link"
+                                                    title={props.href}
+                                                >
+                                                    [Link]
+                                                </a>
+                                            )
+                                        }}
+                                    >
+                                        {msg.content}
+                                    </ReactMarkdown>
                                 </div>
                                 {expandedEmbeddings.has(idx) && msg.embedding && (
                                     Array.isArray(msg.embedding) ? (
-                                        <VectorVisualizer data={msg.embedding as number[]} />
+                                        <VectorVisualizer
+                                            data={msg.embedding as number[]}
+                                            compareTo={
+                                                // Find nearest previous embedding
+                                                (() => {
+                                                    for (let i = idx - 1; i >= 0; i--) {
+                                                        const prevParams = messages[i].embedding;
+                                                        if (Array.isArray(prevParams)) return prevParams as number[];
+                                                    }
+                                                    return undefined;
+                                                })()
+                                            }
+                                        />
                                     ) : (
                                         <div className="embedding-view">
                                             <pre>{JSON.stringify(msg.embedding, null, 2)}</pre>

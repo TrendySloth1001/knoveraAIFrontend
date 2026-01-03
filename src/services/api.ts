@@ -97,19 +97,18 @@ export const api = {
                     prompt,
                     conversationId,
                     teacherId,
-                    webSearch,
                     temperature: 0.7,
                     maxTokens: 300,
                     stream: true,
-                    useRAG: true
+                    useRAG: true,
+                    webSearch: webSearch,
                 })
             });
 
             const reader = response.body?.getReader();
             const decoder = new TextDecoder();
             let fullResponse = '';
-            let finalData: GenerateResponse['data'] | null = null;
-            let buffer = '';
+            let finalData: any = null;
 
             if (reader) {
                 while (true) {
@@ -117,22 +116,31 @@ export const api = {
                     if (done) break;
 
                     const chunk = decoder.decode(value, { stream: true });
-                    // Provide raw chunk for UI streaming if needed, or process it
-                    // The backend likely sends JSON chunks or plain text?
-                    // "stream the output properly" usually means standard text stream or server-sent events.
-                    // Assuming raw text or NDJSON. Let's assume standard text/event-stream for now or raw text.
-                    // BUT valid JSON response is expected at the end typically?
-                    // User request: "route streams the out put"
+                    const lines = chunk.split('\n');
 
-                    // If it's a simple text stream:
-                    onChunk(chunk);
-                    fullResponse += chunk;
+                    for (const line of lines) {
+                        if (line.trim().startsWith('data: ')) {
+                            try {
+                                const jsonStr = line.replace('data: ', '').trim();
+                                if (jsonStr === '[DONE]') continue; // Standard SSE end format if used
+
+                                const data = JSON.parse(jsonStr);
+
+                                if (data.type === 'chunk' && data.content) {
+                                    onChunk(data.content);
+                                    fullResponse += data.content;
+                                } else if (data.type === 'done') {
+                                    // Capture final info if needed
+                                    // We might construct the final return object here
+                                    // But we return at the end of function
+                                }
+                            } catch (e) {
+                                console.warn('Failed to parse SSE line:', line);
+                            }
+                        }
+                    }
                 }
             }
-
-            // If the route streams text, we might not get a final JSON object unless we reconstruct it or if the stream *is* the response.
-            // However, the interface says we return `GenerateResponse['data']`.
-            // User said: "hit the get conversation route when a request been sent to the generate route after clicking new chat"
             // This suggests we need the new conversationId.
             // If the stream is just text, we assume it's the assistant's content.
             // We might need to fetch the conversation details afterwards if headers don't have it.
@@ -167,10 +175,15 @@ export const api = {
             // We'll need a way to get the new conversation ID.
             // I'll assume we might need to refresh the list to find it if not present.
 
+            // Return the captured final data, or construct a response from what we have
+            // The 'done' event from backend has structure: { formatted: { raw: "..." }, ... }
+            const finalResponseText = finalData?.formatted?.raw || finalData?.data?.response || fullResponse;
+
             return {
-                response: fullResponse, // accumulated text
-                conversationId: conversationId || '', // Placeholder, logic in UI will handle reload
-                embedding: [] // We might miss this if streaming text only
+                response: finalResponseText,
+                conversationId: finalData?.conversationId || conversationId || '',
+                embedding: finalData?.embedding || finalData?.data?.embedding || [],
+                formatted: finalData?.formatted
             };
 
         } catch (error) {

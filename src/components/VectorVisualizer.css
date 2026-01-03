@@ -38,3 +38,59 @@
 .dot.positive {
     background-color: #3b82f6;
 }
+
+.dot.compare {
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background-color: transparent;
+}
+
+/* Math Section */
+.vector-math {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border);
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.math-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.math-value.highlight {
+    color: var(--color-brand);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.math-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.math-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.math-item span:first-child {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+.math-formula {
+    font-family: monospace;
+    font-size: 0.7rem;
+    opacity: 0.5;
+    text-align: center;
+    margin-top: 4px;
+}
