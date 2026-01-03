@@ -43,6 +43,24 @@
     gap: 4px;
 }
 
+.conversation-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.conversation-wrapper:hover {
+    background-color: var(--color-bg-tertiary);
+}
+
+.conversation-wrapper:hover .conversation-item {
+    background-color: transparent;
+    /* Remove individual hover since wrapper handles it */
+}
+
+/* Modifying .conversation-item to take up remaining space but not full width relative to delete btn */
 .conversation-item {
     display: flex;
     align-items: center;
@@ -55,17 +73,23 @@
     cursor: pointer;
     text-align: left;
     transition: all 0.2s;
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+    /* Enable flex-shrink for text truncation */
 }
 
-.conversation-item:hover {
-    background-color: var(--color-bg-tertiary);
-    color: var(--color-text-primary);
-}
-
+/* Specific active state */
 .conversation-item.active {
     background-color: var(--color-bg-tertiary);
     color: var(--color-text-primary);
+}
+
+/* Ensure wrapper matches active state if child is active - wait, CSS doesn't select parent. 
+   Simplification: Let the wrapper hover show the button, but keep active styling on the item.
+*/
+
+.conversation-wrapper:hover .delete-btn {
+    opacity: 1;
 }
 
 .conversation-title {
@@ -74,6 +98,43 @@
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    opacity: 0;
+    /* Hidden by default */
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+}
+
+.delete-btn:hover {
+    color: #ef4444;
+    /* Red for delete */
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Mobile: Always show delete button or use different interaction? 
+   For simplicity, always show on mobile or rely on tap logic (hover might stick).
+   Let's keep it visible on mobile or when active.
+*/
+@media (max-width: 768px) {
+    .delete-btn {
+        opacity: 1;
+    }
+}
+
+.conversation-item.active+.delete-btn {
+    /* If we could select sibling, but usually better to have delete btn visible for active item too */
+    opacity: 1;
 }
 
 .message-count {

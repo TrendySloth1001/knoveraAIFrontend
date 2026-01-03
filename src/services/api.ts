@@ -82,6 +82,19 @@ export const api = {
         }
     },
 
+    async deleteConversation(conversationId: string, teacherId: string): Promise<{ success: boolean; message?: string }> {
+        try {
+            const response = await fetch(`${BASE_URL}/conversations/${conversationId}?teacherId=${teacherId}`, {
+                method: 'DELETE',
+            });
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Failed to delete conversation:', error);
+            return { success: false, message: 'Failed to delete conversation' };
+        }
+    },
+
     sendMessage: async (
         prompt: string,
         onChunk: (chunk: string) => void,

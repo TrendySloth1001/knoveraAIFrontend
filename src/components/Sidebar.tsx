@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, Conversation } from '../services/api';
-import { MessageSquare, Plus } from 'lucide-react';
+import { MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { useAlert } from '../context/AlertContext';
 import './Sidebar.css';
 
 interface SidebarProps {
@@ -12,6 +13,7 @@ interface SidebarProps {
 
 export function Sidebar({ teacherId, onSelectConversation, currentConversationId, refreshTrigger }: SidebarProps) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
+    const { showAlert } = useAlert();
 
     const [health, setHealth] = useState<{ status: string; provider: string } | null>(null);
 
@@ -32,6 +34,22 @@ export function Sidebar({ teacherId, onSelectConversation, currentConversationId
         }
     };
 
+    const handleDelete = async (e: React.MouseEvent, conversationId: string) => {
+        e.stopPropagation();
+        if (!confirm('Are you sure you want to delete this conversation?')) return;
+
+        const response = await api.deleteConversation(conversationId, teacherId);
+        if (response.success) {
+            setConversations(prev => prev.filter(c => c.id !== conversationId));
+            if (currentConversationId === conversationId) {
+                onSelectConversation(null);
+            }
+            showAlert(response.message || "Conversation deleted successfully", 'success');
+        } else {
+            showAlert("Failed to delete conversation", 'error');
+        }
+    };
+
     return (
         <aside className="sidebar">
             <div className="sidebar-header">
@@ -46,16 +64,24 @@ export function Sidebar({ teacherId, onSelectConversation, currentConversationId
 
             <div className="conversations-list">
                 {conversations.map((conv) => (
-                    <button
-                        key={conv.id}
-                        className={`conversation-item ${currentConversationId === conv.id ? 'active' : ''}`}
-                        onClick={() => onSelectConversation(conv.id)}
-                    >
-                        <MessageSquare size={16} />
-                        <span className="conversation-title">
-                            {conv.title || 'New Conversation'}
-                        </span>
-                    </button>
+                    <div key={conv.id} className="conversation-wrapper">
+                        <button
+                            className={`conversation-item ${currentConversationId === conv.id ? 'active' : ''}`}
+                            onClick={() => onSelectConversation(conv.id)}
+                        >
+                            <MessageSquare size={16} />
+                            <span className="conversation-title">
+                                {conv.title || 'New Conversation'}
+                            </span>
+                        </button>
+                        <button
+                            className="delete-btn"
+                            onClick={(e) => handleDelete(e, conv.id)}
+                            title="Delete Conversation"
+                        >
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
                 ))}
             </div>
 
