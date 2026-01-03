@@ -1,0 +1,197 @@
+import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { Send, Database, Globe } from 'lucide-react';
+import { api, Message } from '../services/api';
+import { VectorVisualizer } from './VectorVisualizer';
+import './ChatInterface.css';
+
+interface ChatInterfaceProps {
+    conversationId: string | null;
+    teacherId: string;
+    onConversationCreated?: (id: string) => void;
+}
+
+export function ChatInterface({ conversationId, teacherId, onConversationCreated }: ChatInterfaceProps) {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [expandedEmbeddings, setExpandedEmbeddings] = useState<Set<number>>(new Set());
+    const [stats, setStats] = useState<{ messageCount: number; totalTokens: number; duration: number } | null>(null);
+    const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (conversationId) {
+            loadMessages();
+            loadStats();
+        } else {
+            setMessages([]);
+            setStats(null);
+        }
+    }, [conversationId]);
+
+    const loadMessages = async () => {
+        if (!conversationId) return;
+        const msgs = await api.getConversationMessages(conversationId);
+        setMessages(msgs);
+    };
+
+    const loadStats = async () => {
+        if (!conversationId) return;
+        const data = await api.getConversationStats(conversationId);
+        setStats(data);
+    };
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, expandedEmbeddings]);
+
+    const toggleEmbedding = (idx: number) => {
+        const newSet = new Set(expandedEmbeddings);
+        if (newSet.has(idx)) {
+            newSet.delete(idx);
+        } else {
+            newSet.add(idx);
+        }
+        setExpandedEmbeddings(newSet);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!input.trim() || isLoading) return;
+
+        const userMsg: Message = { role: 'user', content: input };
+
+        // Add user message immediately
+        setMessages(prev => [...prev, userMsg]);
+        setInput('');
+        setIsLoading(true);
+
+        // Create placeholder for assistant message
+        const assistantMsgId = Date.now().toString(); // temporary ID
+        setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: '',
+            id: assistantMsgId
+        }]);
+
+        let currentResponse = '';
+
+        const handleChunk = (chunk: string) => {
+            currentResponse += chunk;
+            setMessages(prev => prev.map(msg =>
+                msg.id === assistantMsgId ? { ...msg, content: currentResponse } : msg
+            ));
+        };
+
+        const response = await api.sendMessage(
+            userMsg.content,
+            handleChunk,
+            conversationId,
+            teacherId,
+            isWebSearchEnabled
+        );
+
+        if (response) {
+            // Update with final response (embedding might be available now)
+            setMessages(prev => prev.map(msg =>
+                msg.id === assistantMsgId ? {
+                    ...msg,
+                    content: response.response,
+                    embedding: response.embedding
+                } : msg
+            ));
+
+            // Handle new conversation creation
+            if (response.conversationId && response.conversationId !== conversationId) {
+                if (onConversationCreated) {
+                    onConversationCreated(response.conversationId);
+                }
+            } else if (conversationId) {
+                loadStats(); // Refresh stats for existing conversation
+            }
+        }
+
+        setIsLoading(false);
+    };
+
+    return (
+        <div className="chat-interface">
+
+            <div className="messages-area">
+                {messages.length === 0 ? (
+                    <div className="empty-state">
+                        <h1>Knovera AI</h1>
+                        <p>How can I help you today?</p>
+                    </div>
+                ) : (
+                    messages.map((msg, idx) => (
+                        <div key={idx} className={`message ${msg.role}`}>
+                            <div className="message-content">
+                                <div className="message-role">
+                                    {msg.role === 'user' ? 'You' : 'AI'}
+                                    {stats && msg.role === 'assistant' && (
+                                        <span className="message-stats-inline">
+                                            {stats.duration.toFixed(1)}s | {stats.totalTokens} tokens
+                                        </span>
+                                    )}
+                                    {msg.embedding && (
+                                        <button
+                                            className="embedding-toggle"
+                                            onClick={() => toggleEmbedding(idx)}
+                                            title="View Embedding"
+                                            type="button"
+                                        >
+                                            <Database size={14} />
+                                            <span style={{ fontSize: '0.75rem' }}>Vector</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="markdown-body">
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                </div>
+                                {expandedEmbeddings.has(idx) && msg.embedding && (
+                                    Array.isArray(msg.embedding) ? (
+                                        <VectorVisualizer data={msg.embedding as number[]} />
+                                    ) : (
+                                        <div className="embedding-view">
+                                            <pre>{JSON.stringify(msg.embedding, null, 2)}</pre>
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    ))
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+            <div className="input-area">
+                <form onSubmit={handleSubmit} className="input-form">
+                    <button
+                        type="button"
+                        className={`web-search-toggle ${isWebSearchEnabled ? 'active' : ''}`}
+                        onClick={() => setIsWebSearchEnabled(!isWebSearchEnabled)}
+                        title={isWebSearchEnabled ? "Web Search On" : "Web Search Off"}
+                    >
+                        <Globe size={20} />
+                    </button>
+                    <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Message Knovera AI (qwen2.5:7b)..."
+                        disabled={isLoading}
+                    />
+                    <button type="submit" disabled={!input.trim() || isLoading}>
+                        <Send size={20} />
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
