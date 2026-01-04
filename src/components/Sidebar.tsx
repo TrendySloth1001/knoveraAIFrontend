@@ -5,13 +5,13 @@ import { useAlert } from '../context/AlertContext';
 import './Sidebar.css';
 
 interface SidebarProps {
-    teacherId: string;
+    teacherId: string; // Keep for backward compatibility, but will use as userId
     onSelectConversation: (id: string | null) => void;
     currentConversationId: string | null;
     refreshTrigger?: number;
 }
 
-export function Sidebar({ teacherId, onSelectConversation, currentConversationId, refreshTrigger }: SidebarProps) {
+export function Sidebar({ teacherId: userId, onSelectConversation, currentConversationId, refreshTrigger }: SidebarProps) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const { showAlert, showConfirm } = useAlert();
 
@@ -20,10 +20,14 @@ export function Sidebar({ teacherId, onSelectConversation, currentConversationId
     useEffect(() => {
         loadConversations();
         checkHealth();
-    }, [teacherId, refreshTrigger]);
+    }, [userId, refreshTrigger]);
 
     const loadConversations = async () => {
-        const data = await api.getConversations(teacherId);
+        if (!userId) {
+            console.warn('No userId provided to Sidebar');
+            return;
+        }
+        const data = await api.getConversations(userId);
         setConversations(data);
     };
 
@@ -40,7 +44,7 @@ export function Sidebar({ teacherId, onSelectConversation, currentConversationId
         showConfirm(
             'Are you sure you want to delete this conversation?',
             async () => {
-                const response = await api.deleteConversation(conversationId, teacherId);
+                const response = await api.deleteConversation(conversationId, userId);
                 if (response.success) {
                     setConversations(prev => prev.filter(c => c.id !== conversationId));
                     if (currentConversationId === conversationId) {

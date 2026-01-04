@@ -8,11 +8,12 @@ import './ChatInterface.css';
 
 interface ChatInterfaceProps {
     conversationId: string | null;
-    teacherId: string;
+    teacherId?: string;
+    studentId?: string;
     onConversationCreated?: (id: string) => void;
 }
 
-export function ChatInterface({ conversationId, teacherId, onConversationCreated }: ChatInterfaceProps) {
+export function ChatInterface({ conversationId, teacherId, studentId, onConversationCreated }: ChatInterfaceProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -20,6 +21,9 @@ export function ChatInterface({ conversationId, teacherId, onConversationCreated
     const [stats, setStats] = useState<{ messageCount: number; totalTokens: number; duration: number } | null>(null);
     const [isWebSearchEnabled, setIsWebSearchEnabled] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Use userId (either teacherId or studentId)
+    const userId = teacherId || studentId;
 
     useEffect(() => {
         if (conversationId) {
@@ -94,7 +98,8 @@ export function ChatInterface({ conversationId, teacherId, onConversationCreated
             handleChunk,
             conversationId,
             teacherId,
-            isWebSearchEnabled
+            isWebSearchEnabled,
+            studentId
         );
 
         if (response) {

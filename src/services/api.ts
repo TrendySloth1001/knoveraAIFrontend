@@ -31,16 +31,28 @@ export interface ConversationsResponse {
 
 const BASE_URL = '/api/ai';
 
+// Helper to get auth headers
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('authToken');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 export const api = {
-    getConversations: async (teacherId: string): Promise<Conversation[]> => {
+    getConversations: async (userId: string): Promise<Conversation[]> => {
         try {
+            if (!userId) {
+                console.warn('No userId provided to getConversations');
+                return [];
+            }
             const parentUrl = `/api/ai/conversations`;
             const params = new URLSearchParams({
-                teacherId,
+                userId,
                 sessionType: 'chat',
                 limit: '50'
             });
-            const response = await fetch(`${parentUrl}?${params.toString()}`);
+            const response = await fetch(`${parentUrl}?${params.toString()}`, {
+                headers: getAuthHeaders(),
+            });
             const data: ConversationsResponse = await response.json();
             return data.success ? data.data : [];
         } catch (error) {
@@ -51,7 +63,9 @@ export const api = {
 
     async getHealth(): Promise<{ status: string; provider: string; model: string } | null> {
         try {
-            const response = await fetch(`${BASE_URL}/health`);
+            const response = await fetch(`${BASE_URL}/health`, {
+                headers: getAuthHeaders(),
+            });
             const data = await response.json();
             return data.success ? data.data : null;
         } catch (error) {
@@ -62,7 +76,9 @@ export const api = {
 
     async getConversationStats(conversationId: string): Promise<{ messageCount: number; totalTokens: number; duration: number } | null> {
         try {
-            const response = await fetch(`${BASE_URL}/conversations/${conversationId}/stats`);
+            const response = await fetch(`${BASE_URL}/conversations/${conversationId}/stats`, {
+                headers: getAuthHeaders(),
+            });
             const data = await response.json();
             return data.success ? data.data : null;
         } catch (error) {
@@ -73,7 +89,9 @@ export const api = {
 
     async getConversationMessages(conversationId: string): Promise<Message[]> {
         try {
-            const response = await fetch(`${BASE_URL}/conversations/${conversationId}/messages`);
+            const response = await fetch(`${BASE_URL}/conversations/${conversationId}/messages`, {
+                headers: getAuthHeaders(),
+            });
             const data = await response.json();
             return data.success ? data.data : [];
         } catch (error) {
@@ -86,6 +104,7 @@ export const api = {
         try {
             const response = await fetch(`${BASE_URL}/conversations/${conversationId}?teacherId=${teacherId}`, {
                 method: 'DELETE',
+                headers: getAuthHeaders(),
             });
             const data = await response.json();
             return data;
@@ -99,23 +118,39 @@ export const api = {
         prompt: string,
         onChunk: (chunk: string) => void,
         conversationId?: string | null,
-        teacherId: string = 'teacher-ai-123',
-        webSearch: boolean = false
+        teacherId?: string,
+        webSearch: boolean = false,
+        studentId?: string
     ): Promise<GenerateResponse['data'] | null> => {
         try {
+            const userId = teacherId || studentId;
+            if (!userId) {
+                console.error('No userId provided to sendMessage');
+                return null;
+            }
+
+            const requestBody: any = {
+                prompt,
+                conversationId,
+                userId,
+                temperature: 0.7,
+                maxTokens: 300,
+                stream: true,
+                useRAG: true,
+                webSearch: webSearch,
+            };
+
+            // Include role-specific IDs for backend compatibility
+            if (teacherId) requestBody.teacherId = teacherId;
+            if (studentId) requestBody.studentId = studentId;
+
             const response = await fetch('/api/ai/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt,
-                    conversationId,
-                    teacherId,
-                    temperature: 0.7,
-                    maxTokens: 300,
-                    stream: true,
-                    useRAG: true,
-                    webSearch: webSearch,
-                })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders(),
+                },
+                body: JSON.stringify(requestBody)
             });
 
             const reader = response.body?.getReader();
@@ -196,11 +231,11 @@ export const api = {
             // 3. Fallback: Refetch conversations list and pick the most recent one.
             let resolvedConversationId = finalData?.conversationId || conversationId;
 
-            if (!resolvedConversationId) {
+            if (!resolvedConversationId && userId) {
                 // HACK: New conversation was created but ID not returned.
                 // We fetch the list of conversations and grab the latest one.
                 try {
-                    const conversations = await api.getConversations(teacherId); // Assuming teacherId is available
+                    const conversations = await api.getConversations(userId);
                     if (conversations && conversations.length > 0) {
                         // Sort by lastActiveAt descending just in case, though API usually returns sorted
                         const latest = conversations.sort((a, b) =>

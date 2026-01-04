@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthProvider } from "../context/AuthContext";
 import { ClientWrapper } from "../components/ClientWrapper";
 import "../index.css";
 import "../App.css";
@@ -16,7 +17,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ClientWrapper />
+        <AuthProvider>
+          <ClientWrapper>{children}</ClientWrapper>
+        </AuthProvider>
       </body>
     </html>
   );
