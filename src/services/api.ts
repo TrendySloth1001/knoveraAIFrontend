@@ -190,11 +190,34 @@ export const api = {
 
             // Return the captured final data, or construct a response from what we have
             // The 'done' event from backend has structure: { formatted: { raw: "..." }, ... }
+            // If we don't have a conversationId yet (new chat), let's try to find it.
+            // 1. Check if the final json chunk had it (finalData.conversationId)
+            // 2. Check if we can infer it from the response headers (omitted here as fetch might consume them)
+            // 3. Fallback: Refetch conversations list and pick the most recent one.
+            let resolvedConversationId = finalData?.conversationId || conversationId;
+
+            if (!resolvedConversationId) {
+                // HACK: New conversation was created but ID not returned.
+                // We fetch the list of conversations and grab the latest one.
+                try {
+                    const conversations = await api.getConversations(teacherId); // Assuming teacherId is available
+                    if (conversations && conversations.length > 0) {
+                        // Sort by lastActiveAt descending just in case, though API usually returns sorted
+                        const latest = conversations.sort((a, b) =>
+                            new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
+                        )[0];
+                        resolvedConversationId = latest.id;
+                    }
+                } catch (e) {
+                    console.error("Failed to recover conversation ID", e);
+                }
+            }
+
             const finalResponseText = finalData?.formatted?.raw || finalData?.data?.response || fullResponse;
 
             return {
                 response: finalResponseText,
-                conversationId: finalData?.conversationId || conversationId || '',
+                conversationId: resolvedConversationId || '',
                 embedding: finalData?.embedding || finalData?.data?.embedding || [],
                 formatted: finalData?.formatted
             };

@@ -1,15 +1,27 @@
-import { useState } from 'react'
-import { Sidebar } from './components/Sidebar'
-import { Menu, X } from 'lucide-react';
-import { AlertProvider } from './context/AlertContext';
-import { Alert } from './components/Alert';
-import { ConfirmModal } from './components/ConfirmModal';
-import './App.css'
-import { ChatInterface } from './components/ChatInterface'
+'use client';
 
-function App() {
-    const [selectedTeacherId] = useState<string>('teacher-ai-123') // Default for now
-    const [currentConversationId, setCurrentConversationId] = useState<string | null>(null)
+import { useState, useEffect } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { Sidebar } from './Sidebar';
+import { Menu, X } from 'lucide-react';
+import { AlertProvider } from '../context/AlertContext';
+import { Alert } from './Alert';
+import { ConfirmModal } from './ConfirmModal';
+import '../App.css';
+import { ChatInterface } from './ChatInterface';
+
+export function ClientWrapper() {
+    const router = useRouter();
+    const params = useParams();
+    // params.conversationId will be undefined at /, and a string at /chat/:id
+
+    // We can interpret the ID directly from params so we don't need local state for it really,
+    // but ChatInterface expects `conversationId` string | null.
+    // If params.conversationId is array (unlikely with this setup) or string.
+    const rawId = params?.conversationId;
+    const conversationId = typeof rawId === 'string' ? rawId : null;
+
+    const [selectedTeacherId] = useState<string>('teacher-ai-123')
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -18,13 +30,17 @@ function App() {
     };
 
     const handleSelectConversation = (id: string | null) => {
-        setCurrentConversationId(id);
-        setIsSidebarOpen(false); // Close sidebar on selection (mobile)
+        if (id) {
+            router.push(`/chat/${id}`);
+        } else {
+            router.push('/');
+        }
+        setIsSidebarOpen(false);
     };
 
     const handleConversationCreated = (newId: string) => {
         setRefreshTrigger(prev => prev + 1);
-        setCurrentConversationId(newId);
+        router.push(`/chat/${newId}`);
     };
 
     return (
@@ -41,7 +57,7 @@ function App() {
                     <Sidebar
                         teacherId={selectedTeacherId}
                         onSelectConversation={handleSelectConversation}
-                        currentConversationId={currentConversationId}
+                        currentConversationId={conversationId}
                         refreshTrigger={refreshTrigger}
                     />
                 </div>
@@ -52,7 +68,7 @@ function App() {
 
                 <main className="main-content">
                     <ChatInterface
-                        conversationId={currentConversationId}
+                        conversationId={conversationId}
                         teacherId={selectedTeacherId}
                         onConversationCreated={handleConversationCreated}
                     />
@@ -63,5 +79,3 @@ function App() {
         </AlertProvider>
     )
 }
-
-export default App
