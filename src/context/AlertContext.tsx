@@ -8,10 +8,20 @@ interface AlertState {
     isVisible: boolean;
 }
 
+interface ConfirmState {
+    isOpen: boolean;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+}
+
 interface AlertContextType {
     alert: AlertState;
     showAlert: (message: string, type?: AlertType) => void;
     hideAlert: () => void;
+    confirm: ConfirmState;
+    showConfirm: (message: string, onConfirm: () => void, onCancel?: () => void) => void;
+    hideConfirm: () => void;
 }
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
@@ -23,20 +33,45 @@ export function AlertProvider({ children }: { children: ReactNode }) {
         isVisible: false,
     });
 
+    const [confirm, setConfirm] = useState<ConfirmState>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        onCancel: () => { },
+    });
+
     const hideAlert = useCallback(() => {
         setAlert(prev => ({ ...prev, isVisible: false }));
     }, []);
 
     const showAlert = useCallback((message: string, type: AlertType = 'info') => {
         setAlert({ message, type, isVisible: true });
-        // Auto-hide after 3 seconds
         setTimeout(() => {
             hideAlert();
         }, 3000);
     }, [hideAlert]);
 
+    const hideConfirm = useCallback(() => {
+        setConfirm(prev => ({ ...prev, isOpen: false }));
+    }, []);
+
+    const showConfirm = useCallback((message: string, onConfirm: () => void, onCancel: () => void = () => { }) => {
+        setConfirm({
+            isOpen: true,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                hideConfirm();
+            },
+            onCancel: () => {
+                onCancel();
+                hideConfirm();
+            },
+        });
+    }, [hideConfirm]);
+
     return (
-        <AlertContext.Provider value={{ alert, showAlert, hideAlert }}>
+        <AlertContext.Provider value={{ alert, showAlert, hideAlert, confirm, showConfirm, hideConfirm }}>
             {children}
         </AlertContext.Provider>
     );

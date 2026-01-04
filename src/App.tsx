@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar'
 import { Menu, X } from 'lucide-react';
 import { AlertProvider } from './context/AlertContext';
 import { Alert } from './components/Alert';
+import { ConfirmModal } from './components/ConfirmModal';
 import './App.css'
 import { ChatInterface } from './components/ChatInterface'
 
@@ -57,6 +58,7 @@ function App() {
                     />
                 </main>
                 <Alert />
+                <ConfirmModal />
             </div>
         </AlertProvider>
     )

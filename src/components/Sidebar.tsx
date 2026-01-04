@@ -13,7 +13,7 @@ interface SidebarProps {
 
 export function Sidebar({ teacherId, onSelectConversation, currentConversationId, refreshTrigger }: SidebarProps) {
     const [conversations, setConversations] = useState<Conversation[]>([]);
-    const { showAlert } = useAlert();
+    const { showAlert, showConfirm } = useAlert();
 
     const [health, setHealth] = useState<{ status: string; provider: string } | null>(null);
 
@@ -36,18 +36,22 @@ export function Sidebar({ teacherId, onSelectConversation, currentConversationId
 
     const handleDelete = async (e: React.MouseEvent, conversationId: string) => {
         e.stopPropagation();
-        if (!confirm('Are you sure you want to delete this conversation?')) return;
 
-        const response = await api.deleteConversation(conversationId, teacherId);
-        if (response.success) {
-            setConversations(prev => prev.filter(c => c.id !== conversationId));
-            if (currentConversationId === conversationId) {
-                onSelectConversation(null);
+        showConfirm(
+            'Are you sure you want to delete this conversation?',
+            async () => {
+                const response = await api.deleteConversation(conversationId, teacherId);
+                if (response.success) {
+                    setConversations(prev => prev.filter(c => c.id !== conversationId));
+                    if (currentConversationId === conversationId) {
+                        onSelectConversation(null);
+                    }
+                    showAlert(response.message || "Conversation deleted successfully", 'success');
+                } else {
+                    showAlert("Failed to delete conversation", 'error');
+                }
             }
-            showAlert(response.message || "Conversation deleted successfully", 'success');
-        } else {
-            showAlert("Failed to delete conversation", 'error');
-        }
+        );
     };
 
     return (
