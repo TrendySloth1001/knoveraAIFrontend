@@ -32,9 +32,13 @@ export interface ConversationsResponse {
 const BASE_URL = '/api/ai';
 
 // Helper to get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem('authToken');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+    const headers: Record<string, string> = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
 };
 
 export const api = {
@@ -157,87 +161,57 @@ export const api = {
             const decoder = new TextDecoder();
             let fullResponse = '';
             let finalData: any = null;
+            let buffer = '';
 
             if (reader) {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    
+                    // Keep the last incomplete line in the buffer
+                    buffer = lines.pop() || '';
 
                     for (const line of lines) {
                         if (line.trim().startsWith('data: ')) {
                             try {
                                 const jsonStr = line.replace('data: ', '').trim();
-                                if (jsonStr === '[DONE]') continue; // Standard SSE end format if used
+                                if (!jsonStr || jsonStr === '[DONE]') continue;
 
                                 const data = JSON.parse(jsonStr);
 
-                                if (data.type === 'chunk' && data.content) {
+                                if (data.type === 'start') {
+                                    // Initial metadata, can be used if needed
+                                    console.log('Stream started', data);
+                                } else if (data.type === 'chunk' && data.content) {
+                                    // Stream the content chunk by chunk
                                     onChunk(data.content);
                                     fullResponse += data.content;
                                 } else if (data.type === 'done') {
-                                    // Capture final info if needed
-                                    // We might construct the final return object here
-                                    // But we return at the end of function
+                                    // Final metadata with conversationId and other info
+                                    finalData = data;
+                                } else if (data.type === 'error') {
+                                    console.error('Stream error:', data.message);
+                                    throw new Error(data.message);
                                 }
                             } catch (e) {
-                                console.warn('Failed to parse SSE line:', line);
+                                console.warn('Failed to parse SSE line:', line, e);
                             }
                         }
                     }
                 }
             }
-            // This suggests we need the new conversationId.
-            // If the stream is just text, we assume it's the assistant's content.
-            // We might need to fetch the conversation details afterwards if headers don't have it.
-            // Or maybe the backend sends a final JSON chunk?
-            // Let's assume we accumulate text and rely on reloading conversation to get the ID if not provided.
-            // WAIT, looking at previous code: `return data.success ? data.data : null;`
-            // If I stream, I can't just `await response.json()`.
 
-            // Let's assume the stream is just the content string for now.
-            // If the backend is ours (Node/Express), likely res.write().
-
-            // IMPORTANT: If conversationID is null, how do we get the new ID?
-            // Maybe it is returned in a header or the first chunk?
-            // Let's check if the response returns JSON-lines or just text.
-            // Since I cannot check backend code, I will implement robust handling:
-            // 1. Accumulate text.
-            // 2. Return a constructed object.
-            // 3. BUT conversationId is needed for sync.
-            // Let's assume standard behavior: if new chat, we might need to `getConversations` and pick the latest if ID is missing.
-            // OR the backend sends a JSON at the END or BEGINNING.
-
-            // Safest bet without backend code access: 
-            // The "data" object returned previously had `conversationId`.
-            // Use a workaround: Refetch conversations list to find the new one if we started with null.
-
-            // Actually, let's look at the "output" example in User Request 0. It showed JSON output.
-            // If streaming, it's likely text.
-            // Let's try to parse the FULL response as JSON at the end? NO, that fails if it was streamed text.
-
-            // Let's implement text accumulation for `onChunk`.
-            // And return a synthetic object.
-            // We'll need a way to get the new conversation ID.
-            // I'll assume we might need to refresh the list to find it if not present.
-
-            // Return the captured final data, or construct a response from what we have
-            // The 'done' event from backend has structure: { formatted: { raw: "..." }, ... }
-            // If we don't have a conversationId yet (new chat), let's try to find it.
-            // 1. Check if the final json chunk had it (finalData.conversationId)
-            // 2. Check if we can infer it from the response headers (omitted here as fetch might consume them)
-            // 3. Fallback: Refetch conversations list and pick the most recent one.
+            // Get the conversation ID from final data or use existing
             let resolvedConversationId = finalData?.conversationId || conversationId;
 
             if (!resolvedConversationId && userId) {
-                // HACK: New conversation was created but ID not returned.
-                // We fetch the list of conversations and grab the latest one.
+                // Fallback: fetch the latest conversation
                 try {
                     const conversations = await api.getConversations(userId);
                     if (conversations && conversations.length > 0) {
-                        // Sort by lastActiveAt descending just in case, though API usually returns sorted
                         const latest = conversations.sort((a, b) =>
                             new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
                         )[0];
@@ -248,13 +222,11 @@ export const api = {
                 }
             }
 
-            const finalResponseText = finalData?.formatted?.raw || finalData?.data?.response || fullResponse;
-
             return {
-                response: finalResponseText,
+                response: fullResponse,
                 conversationId: resolvedConversationId || '',
-                embedding: finalData?.embedding || finalData?.data?.embedding || [],
-                formatted: finalData?.formatted
+                embedding: finalData?.embedding || [],
+                formatted: finalData?.formatted,
             };
 
         } catch (error) {

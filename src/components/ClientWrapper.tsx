@@ -138,64 +138,84 @@ export function ClientWrapper({ children }: ClientWrapperProps) {
                             justifyContent: 'space-between',
                             gap: '0.5rem',
                         }}>
-                            {user?.avatarUrl ? (
-                                <img
-                                    src={user.avatarUrl}
-                                    alt="Profile"
-                                    style={{
+                            <div 
+                                onClick={() => router.push('/profile')}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    flex: 1,
+                                    cursor: 'pointer',
+                                    padding: '0.5rem',
+                                    borderRadius: '8px',
+                                    transition: 'background 0.2s',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                }}
+                            >
+                                {user?.avatarUrl ? (
+                                    <img
+                                        src={user.avatarUrl}
+                                        alt="Profile"
+                                        style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '50%',
+                                            objectFit: 'cover',
+                                            border: '2px solid rgba(102, 126, 234, 0.5)',
+                                        }}
+                                    />
+                                ) : (
+                                    <div style={{
                                         width: '40px',
                                         height: '40px',
                                         borderRadius: '50%',
-                                        objectFit: 'cover',
-                                        border: '2px solid rgba(102, 126, 234, 0.5)',
-                                    }}
-                                />
-                            ) : (
+                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1.125rem',
+                                        fontWeight: 700,
+                                        color: '#ffffff',
+                                        textTransform: 'uppercase',
+                                    }}>
+                                        {profile?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                                    </div>
+                                )}
                                 <div style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '1.125rem',
-                                    fontWeight: 700,
-                                    color: '#ffffff',
-                                    textTransform: 'uppercase',
-                                }}>
-                                    {profile?.firstName?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                                </div>
-                            )}
-                            <div style={{
-                                flex: 1,
-                                overflow: 'hidden',
-                            }}>
-                                <div style={{
-                                    fontSize: '0.875rem',
-                                    fontWeight: 600,
-                                    color: '#ffffff',
+                                    flex: 1,
                                     overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
                                 }}>
-                                    {profile?.firstName} {profile?.lastName}
-                                </div>
-                                <div style={{
-                                    fontSize: '0.75rem',
-                                    color: 'rgba(255, 255, 255, 0.5)',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                }}>
-                                    {user?.email}
-                                </div>
-                                <div style={{
-                                    fontSize: '0.65rem',
-                                    color: 'rgba(255, 255, 255, 0.4)',
-                                    marginTop: '0.25rem',
-                                }}>
-                                    {user?.role}
+                                    <div style={{
+                                        fontSize: '0.875rem',
+                                        fontWeight: 600,
+                                        color: '#ffffff',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    }}>
+                                        {profile?.firstName} {profile?.lastName}
+                                    </div>
+                                    <div style={{
+                                        fontSize: '0.75rem',
+                                        color: 'rgba(255, 255, 255, 0.5)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                    }}>
+                                        {user?.email}
+                                    </div>
+                                    <div style={{
+                                        fontSize: '0.65rem',
+                                        color: 'rgba(255, 255, 255, 0.4)',
+                                        marginTop: '0.25rem',
+                                    }}>
+                                        {user?.role}
+                                    </div>
                                 </div>
                             </div>
                             <button
@@ -231,12 +251,16 @@ export function ClientWrapper({ children }: ClientWrapperProps) {
                 )}
 
                 <main className="main-content">
-                    <ChatInterface
-                        conversationId={conversationId}
-                        teacherId={userRole === 'TEACHER' ? userId : ''}
-                        studentId={userRole === 'STUDENT' ? userId : ''}
-                        onConversationCreated={handleConversationCreated}
-                    />
+                    {pathname === '/profile' ? (
+                        children
+                    ) : (
+                        <ChatInterface
+                            conversationId={conversationId}
+                            teacherId={userRole === 'TEACHER' ? userId : ''}
+                            studentId={userRole === 'STUDENT' ? userId : ''}
+                            onConversationCreated={handleConversationCreated}
+                        />
+                    )}
                 </main>
                 <Alert />
                 <ConfirmModal />

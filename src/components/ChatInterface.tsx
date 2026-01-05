@@ -88,9 +88,13 @@ export function ChatInterface({ conversationId, teacherId, studentId, onConversa
 
         const handleChunk = (chunk: string) => {
             currentResponse += chunk;
-            setMessages(prev => prev.map(msg =>
-                msg.id === assistantMsgId ? { ...msg, content: currentResponse } : msg
-            ));
+            // Force immediate update for smooth streaming
+            setMessages(prev => {
+                const updated = prev.map(msg =>
+                    msg.id === assistantMsgId ? { ...msg, content: currentResponse } : msg
+                );
+                return updated;
+            });
         };
 
         const response = await api.sendMessage(
